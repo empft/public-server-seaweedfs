@@ -4,8 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"flag"
-	"fmt"
+	"flag"	
 	"io"
 	"io/ioutil"
 	"log"
@@ -104,7 +103,7 @@ type client struct {
 
 func (c *client) sendRequestAndForwardResponse(w http.ResponseWriter, req *http.Request) {
 	resp, err := c.httpClient.Do(req)
-	var urlErr url.Error
+	var urlErr *url.Error
 	if errors.As(err, &urlErr) {
 		log.Printf("http request error: %s/n", urlErr)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -219,7 +218,7 @@ func (c *client) postHandler() http.HandlerFunc {
 			}
 
 			resp, err := c.httpClient.Do(req)
-			var urlErr url.Error
+			var urlErr *url.Error
 			if errors.As(err, &urlErr) {
 				log.Printf("http request error: %s/n", urlErr)
 				http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -366,7 +365,7 @@ func (c *client) deleteHandler(timeout time.Duration) http.HandlerFunc {
 		}
 
 		resp, err := c.httpClient.Do(req)
-		var urlErr url.Error
+		var urlErr *url.Error
 		if errors.As(err, &urlErr) {
 			log.Printf("http request error: %s/n", urlErr)
 			http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
@@ -375,7 +374,8 @@ func (c *client) deleteHandler(timeout time.Duration) http.HandlerFunc {
 		defer resp.Body.Close()
 
 		if isSuccessStatus(resp.StatusCode) {
-			ctx, _ := context.WithTimeout(context.Background(), timeout)
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
 			err = c.redisHandler.Del(ctx, path)
 			if err != nil {
 				log.Printf("cannot delete redis key: %s\n", err)
@@ -425,5 +425,5 @@ func main() {
 		r.Delete("/", handler.deleteHandler(timeout))
 	})
 
-	http.ListenAndServe(fmt.Sprintf("%s", *address), r)
+	http.ListenAndServe(*address, r)
 }
